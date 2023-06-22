@@ -1,0 +1,179 @@
+//By Junya Ogawa
+
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+#include <LiquidCrystal_I2C.h>
+#include <Wire.h>
+#define PAUSE_PIN 4
+#define RESET_PIN 2
+
+Adafruit_MPU6050 mpu;
+LiquidCrystal_I2C lcd(0x27,20,4);
+
+void setup(void) {
+  Serial.begin(115200);
+  if(!mpu.begin()){
+    Serial.println("Failed to find MPU6050 Chip");
+    while(1){
+      delay(10);
+    }
+  }
+  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(PAUSE_PIN, INPUT_PULLUP);
+  pinMode(RESET_PIN, INPUT_PULLUP);
+  mpu.setAccelerometerRange(MPU6050_RANGE_16_G);
+  mpu.setGyroRange(MPU6050_RANGE_250_DEG);
+  mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
+  Serial.println("");
+  delay(100);
+  lcd.backlight();
+  lcd.begin(20, 4);
+  lcd.setCursor(0, 0);
+  lcd.print("Accel. Detector");
+}
+
+//Variables
+float roll;
+float pitch;
+const float mu = 0.01;
+float ax_array [10]; //x-acceleration array
+float ay_array [10]; //y-acceleration array
+float az_array [10]; //z-acceleration array
+
+//Note: All buttons (Start/Reset [PIN 2] and Pause [PIN 4]) are meant to be held down to be activated
+//(Ctrl + Left Click)
+
+void loop() {
+  //Reads Start/Reset Button State
+  int reset_button_status = digitalRead((RESET_PIN)); 
+  if (reset_button_status == HIGH) {
+    //Preamble
+    lcd.setCursor(0, 1);
+    lcd.print("                    ");
+    lcd.setCursor(0, 2);
+    delay(500);
+    lcd.print("                    ");
+    lcd.setCursor(0, 2);
+    delay(500);
+    lcd.print("Press to Start      ");
+    lcd.setCursor(0, 3);
+    lcd.print("                    ");
+  }
+  if (reset_button_status == LOW) {
+    //Reads Pause Button State
+    int pause_button_status = digitalRead((PAUSE_PIN));
+    if (pause_button_status == LOW) {
+      //Pausing state
+      lcd.setCursor(0, 3);
+      lcd.print("Paused         ");
+    }
+    if (pause_button_status == HIGH) {
+      for (int i = 0; i < 10; i++) {
+        //Measurement and Sorting of acceleration values into arrays
+        sensors_event_t a, g, temp;
+        mpu.getEvent(&a, &g, &temp);
+        ax_array [i] = float(a.acceleration.x);
+        ay_array [i] = float(a.acceleration.y);
+        az_array [i] = float(a.acceleration.z);
+      }
+      //Calculation of average of acceleration values
+      float avgax = averagecalc(ax_array);
+      float avgay = averagecalc(ay_array);
+      float avgaz = averagecalc(az_array);
+      roll = radtodeg(rollcalc(avgax, avgay, avgaz));
+      pitch = radtodeg(pitchcalc(avgax, avgay, avgaz, mu));
+      if (roll == 0 && pitch == 45) {
+        //Device is perfectly aligned
+        digitalWrite(LED_BUILTIN, HIGH);
+        lcd.setCursor(0, 1);
+        lcd.print("                    ");
+        lcd.setCursor(0, 2);
+        lcd.print("      Aligned!      ");
+        lcd.setCursor(0, 3);
+        lcd.print("   Press to Reset   ");
+      }
+      else {
+        //Main state
+        digitalWrite(LED_BUILTIN, LOW);
+        lcd.setCursor(0, 1);
+        lcd.print("Roll: ");
+        lcd.setCursor(0, 2);
+        lcd.print("Pitch: ");
+        //remove printing bugs
+        if (roll >= 0) {
+          lcd.setCursor(10, 1);
+          lcd.print(" ");
+        }
+        if (pitch >= 0) {
+          lcd.setCursor(11, 2);
+          lcd.print("    ");
+        }
+        lcd.setCursor(6, 1);
+        lcd.print(roll);
+        lcd.setCursor(7, 2);
+        lcd.print(pitch);
+        lcd.setCursor(0, 3);
+        lcd.print("Aligning");
+        lcd.setCursor(8, 3);
+        lcd.print("...       ");
+        delay(500);
+        lcd.setCursor(8, 3);
+        lcd.print("   ");
+        delay(500);
+        lcd.setCursor(15, 1);
+        //Check for individual value alignment
+        if (roll == 0) {
+          //only roll is aligned
+          lcd.print("(YES)");
+          lcd.setCursor(11, 1);
+          lcd.print(" ");
+        }
+        else {
+          lcd.print(" (NO)");
+        }
+        lcd.setCursor(15, 2);
+        if (pitch == 45) {
+          //only pitch is aligned
+          lcd.print("(YES)");
+        }
+        else {
+          lcd.print(" (NO)");
+        }
+      }
+    }
+  }
+}
+
+//Functions
+float sign(float x) {
+  //sign function
+  float sgn_x;
+  return sgn_x = abs(x)/x;
+}
+
+float rollcalc(float ax, float ay, float az) {
+  //Formula for roll calculation
+  float roll;
+  return roll = atan(-ax/sqrt((ay)*(ay)+(az)*(az)));
+}
+
+float pitchcalc(float ax, float ay, float az, float mu) {
+  //Formula for pitch calculation
+  double pitch;
+  return pitch = atan(ay/(sign(az)*sqrt((az)*(az)+mu*(ax)*(ax))));
+}
+
+float averagecalc(float accelarray[10]) {
+  //averaging values in array
+  float average;
+  float sum = 0;
+  for (int i = 0; i < 10; i++){
+    sum = sum + accelarray[i];
+  }
+  return average = sum/10;
+}
+
+float radtodeg(float angle) {
+  float deg;
+  return deg = angle*(180/PI);
+}
