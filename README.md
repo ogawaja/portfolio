@@ -1,4 +1,3 @@
 # sk-comp-tool
-sklearn summative (Comp Tools)
-SolidWorks Files (Group Work - not all is designed my me): OneDrive Folder
-s18 summative written by me; read_digit not by me
+Files have been used to sort out the codes (in Arduino, Python and C++)
+
