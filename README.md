@@ -1,3 +1,3 @@
 # portfolio
-Files have been used to sort out the codes (in Arduino, Python and C++)
+Compilation of all my works in University. Includes some code I did in Year 2 as well as CFD summatives from Thermofluid 3Turboprop4
 
